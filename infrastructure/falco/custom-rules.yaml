@@ -1,0 +1,25 @@
+# Custom Falco rules for detecting suspicious activity
+
+- rule: Unauthorized Process in Container
+  desc: Detect unexpected process execution in application containers
+  condition: >
+    spawned_process and
+    container and
+    container.image.repository in (ghcr.io/ibraheemcisse/gateway, ghcr.io/ibraheemcisse/worker) and
+    not proc.name in (python, sh, bash)
+  output: >
+    Unexpected process started in container
+    (user=%user.name command=%proc.cmdline container=%container.name image=%container.image.repository)
+  priority: WARNING
+
+- rule: Sensitive File Access
+  desc: Detect access to sensitive files from application
+  condition: >
+    open_read and
+    container and
+    fd.name in (/etc/shadow, /etc/passwd, /root/.ssh/id_rsa) and
+    container.image.repository in (ghcr.io/ibraheemcisse/gateway, ghcr.io/ibraheemcisse/worker)
+  output: >
+    Sensitive file accessed in container
+    (user=%user.name file=%fd.name container=%container.name)
+  priority: CRITICAL
