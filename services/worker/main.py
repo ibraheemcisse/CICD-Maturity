@@ -33,6 +33,11 @@ worker_task = None
 oom_enabled = False
 memory_leak = []
 
+# Backpressure configuration
+MAX_CONCURRENT_JOBS = int(os.getenv("MAX_CONCURRENT_JOBS", "10"))
+QUEUE_DEPTH_WARNING_THRESHOLD = int(os.getenv("QUEUE_DEPTH_WARNING", "50"))
+QUEUE_DEPTH_CRITICAL_THRESHOLD = int(os.getenv("QUEUE_DEPTH_CRITICAL", "100"))
+
 
 async def process_job(job: Job):
     """
@@ -71,12 +76,46 @@ async def process_job(job: Job):
         active_jobs -= 1
 
 
+async def check_backpressure():
+    """
+    Monitor queue depth and log backpressure warnings.
+    
+    In production, this would trigger:
+    - Horizontal pod autoscaling
+    - Alert notifications
+    - Rate limiting at gateway
+    """
+    queue_depth = await queue_client.get_queue_depth()
+    
+    if queue_depth >= QUEUE_DEPTH_CRITICAL_THRESHOLD:
+        logger.error(
+            f"CRITICAL backpressure: queue depth {queue_depth} "
+            f"(threshold: {QUEUE_DEPTH_CRITICAL_THRESHOLD})"
+        )
+    elif queue_depth >= QUEUE_DEPTH_WARNING_THRESHOLD:
+        logger.warning(
+            f"Backpressure detected: queue depth {queue_depth} "
+            f"(threshold: {QUEUE_DEPTH_WARNING_THRESHOLD})"
+        )
+    
+    return queue_depth
+
+
 async def worker_loop():
-    """Main worker loop - consumes jobs from queue."""
-    logger.info("Worker loop started")
+    """Main worker loop - consumes jobs from queue with backpressure handling."""
+    logger.info(f"Worker loop started (max concurrent jobs: {MAX_CONCURRENT_JOBS})")
     
     while True:
         try:
+            # Check backpressure
+            queue_depth = await check_backpressure()
+            
+            # Respect concurrency limit (backpressure handling)
+            if active_jobs >= MAX_CONCURRENT_JOBS:
+                logger.debug(f"Concurrency limit reached ({active_jobs}/{MAX_CONCURRENT_JOBS}), waiting...")
+                await asyncio.sleep(1)
+                continue
+            
             job = await queue_client.dequeue(timeout=5)
             
             if job:
@@ -119,15 +158,23 @@ app = FastAPI(
 @app.get("/health")
 async def health_check():
     """Health check endpoint for k8s liveness/readiness probes."""
+    queue_depth = await queue_client.get_queue_depth()
+    
+    # Degraded if queue depth critical
+    status = "healthy"
+    if queue_depth >= QUEUE_DEPTH_CRITICAL_THRESHOLD:
+        status = "degraded"
+    
     return JSONResponse(
         status_code=200,
         content={
-            "status": "healthy",
+            "status": status,
             "service": "worker",
             "version": "0.1.0",
             "active_jobs": active_jobs,
             "processed_jobs": processed_jobs,
-            "failed_jobs": failed_jobs
+            "failed_jobs": failed_jobs,
+            "queue_depth": queue_depth
         }
     )
 
@@ -139,12 +186,14 @@ async def root():
         "service": "worker",
         "message": "Worker service is running",
         "active_jobs": active_jobs,
+        "max_concurrent_jobs": MAX_CONCURRENT_JOBS,
         "processed_jobs": processed_jobs,
         "failed_jobs": failed_jobs,
         "endpoints": {
             "health": "/health",
             "metrics": "/metrics",
             "oom": "/oom/enable and /oom/disable",
+            "backpressure": "/backpressure/config",
             "docs": "/docs"
         }
     }
@@ -152,16 +201,36 @@ async def root():
 
 @app.get("/metrics")
 async def metrics():
-    """Basic metrics endpoint."""
+    """Metrics endpoint with backpressure indicators."""
     queue_depth = await queue_client.get_queue_depth()
+    
+    # Calculate backpressure severity
+    backpressure_level = "normal"
+    if queue_depth >= QUEUE_DEPTH_CRITICAL_THRESHOLD:
+        backpressure_level = "critical"
+    elif queue_depth >= QUEUE_DEPTH_WARNING_THRESHOLD:
+        backpressure_level = "warning"
+    
     return {
         "active_jobs": active_jobs,
+        "max_concurrent_jobs": MAX_CONCURRENT_JOBS,
         "processed_jobs": processed_jobs,
         "failed_jobs": failed_jobs,
         "queue_depth": queue_depth,
+        "backpressure_level": backpressure_level,
         "oom_enabled": oom_enabled,
         "memory_leak_count": len(memory_leak),
         "service": "worker"
+    }
+
+
+@app.get("/backpressure/config")
+async def backpressure_config():
+    """Get backpressure configuration."""
+    return {
+        "max_concurrent_jobs": MAX_CONCURRENT_JOBS,
+        "queue_depth_warning_threshold": QUEUE_DEPTH_WARNING_THRESHOLD,
+        "queue_depth_critical_threshold": QUEUE_DEPTH_CRITICAL_THRESHOLD
     }
 
 
