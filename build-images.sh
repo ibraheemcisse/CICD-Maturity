@@ -5,11 +5,17 @@ echo "Building Docker images for CICD-Maturity project..."
 
 # Build gateway
 echo "Building gateway..."
-docker build -t gateway:latest -f services/gateway/Dockerfile services/
+docker build -t gateway:latest \
+  --build-arg SERVICE=gateway \
+  -f services/gateway/Dockerfile \
+  .
 
 # Build worker
 echo "Building worker..."
-docker build -t worker:latest -f services/worker/Dockerfile services/
+docker build -t worker:latest \
+  --build-arg SERVICE=worker \
+  -f services/worker/Dockerfile \
+  .
 
 echo "Images built successfully!"
 echo ""

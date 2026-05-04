@@ -2,12 +2,12 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Copy shared utilities first
-COPY ../shared /app/shared
+# Copy shared utilities
+COPY services/shared /app/shared
 
-# Copy worker files
-COPY requirements.txt .
-COPY *.py .
+# Copy worker service files
+COPY services/worker/requirements.txt /app/
+COPY services/worker/*.py /app/
 
 # Install dependencies
 RUN pip install --no-cache-dir -r requirements.txt
