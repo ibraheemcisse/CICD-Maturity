@@ -3,29 +3,8 @@
 A distributed system demonstrating CI/CD pipeline evolution from basic to enterprise-grade.
 
 ## Architecture
-┌─────────────────────────────────────────────────────────────┐
-│                      k3s Cluster                             │
-│                                                              │
-│  ┌──────────────┐         ┌──────────────┐                 │
-│  │   Gateway    │────────▶│    Worker    │                 │
-│  │  (FastAPI)   │         │  (FastAPI)   │                 │
-│  │              │         │              │                 │
-│  │ • Rate limit │         │ • Job proc   │                 │
-│  │ • Circuit    │         │ • OOM sim    │                 │
-│  │   breaker    │         │ • Backpress  │                 │
-│  └──────┬───────┘         └──────┬───────┘                 │
-│         │                        │                          │
-│         │                        │                          │
-│         ├────────────────────────┼──────────┐              │
-│         │                        │          │              │
-│         ▼                        ▼          ▼              │
-│  ┌──────────────┐         ┌──────────────┐ ┌─────────┐   │
-│  │  PostgreSQL  │         │    Redis     │ │ Metrics │   │
-│  │ (StatefulSet)│         │   (Queue)    │ │ (Future)│   │
-│  └──────────────┘         └──────────────┘ └─────────┘   │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
-External → Gateway (Ingress: gateway.local)
+
+![Distributed Job Processing System Architecture](docs/images/architecture.png)
 
 **Multi-service distributed job processing system:**
 
@@ -33,6 +12,20 @@ External → Gateway (Ingress: gateway.local)
 - **Worker**: Async job processor with concurrency limits and backpressure detection
 - **Redis Queue**: Job distribution between gateway and workers
 - **PostgreSQL**: Job persistence (future integration)
+
+**Demonstrates production failure patterns:**
+- Circuit breaking (protects against cascading failures)
+- OOM simulation (demonstrates resource exhaustion under load)
+- Backpressure handling (queue depth monitoring + worker concurrency limits)
+
+## Why This Architecture
+
+This is the **Stripe/GitHub/Shopify pattern** — gateway → queue → worker pool. Real companies use this exact architecture at scale. This project demonstrates:
+
+1. How to build it correctly
+2. How to instrument it for observability
+3. How failures propagate and how to contain them
+4. How CI/CD matures as the system grows
 
 **Demonstrates production failure patterns:**
 - Circuit breaking (protects against cascading failures)
