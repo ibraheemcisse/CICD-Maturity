@@ -1,0 +1,108 @@
+name: Stage 2 - Reliable CI/CD
+
+on:
+  push:
+    branches: [ stage-2-reliable ]
+  pull_request:
+    branches: [ stage-2-reliable ]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ${{ github.repository_owner }}
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        service: [gateway, worker]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('services/${{ matrix.service }}/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install linting tools
+        run: |
+          pip install ruff==0.8.4 mypy==1.13.0
+      
+      - name: Run ruff linting
+        run: |
+          cd services/${{ matrix.service }}
+          ruff check . --select=E,F,I --line-length=100
+      
+      - name: Run mypy type checking
+        run: |
+          cd services/${{ matrix.service }}
+          mypy . --ignore-missing-imports || true  # Non-blocking for now
+
+  build-and-test:
+    runs-on: ubuntu-latest
+    needs: lint
+    permissions:
+      contents: read
+      packages: write
+    
+    strategy:
+      fail-fast: true
+      matrix:
+        service: [gateway, worker]
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('services/${{ matrix.service }}/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+      
+      - name: Install service dependencies
+        run: |
+          cd services/${{ matrix.service }}
+          pip install -r requirements.txt
+      
+      - name: Run tests
+        run: |
+          cd services/${{ matrix.service }}
+          pytest -v
+      
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Build Docker image
+        run: |
+          docker build -t ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.sha }} \
+                       -t ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:stage-2 \
+                       -f services/${{ matrix.service }}/Dockerfile \
+                       .
+      
+      - name: Push Docker image
+        run: |
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:${{ github.sha }}
+          docker push ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:stage-2
