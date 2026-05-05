@@ -6,21 +6,22 @@ Handles:
 - Circuit breaking for queue failures
 - Rate limiting (future)
 """
+import os
+import sys
+import uuid
+from contextlib import asynccontextmanager
+from datetime import datetime
+
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import JSONResponse
-from contextlib import asynccontextmanager
-import os
-import uuid
-import sys
-from datetime import datetime
 
 # Add parent directory to path for shared imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+from shared.logger import setup_logger
 from shared.models import Job, JobStatus
 from shared.queue import QueueClient
-from shared.logger import setup_logger
-from circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 
 logger = setup_logger("gateway")
 queue_client = QueueClient()

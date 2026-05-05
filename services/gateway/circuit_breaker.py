@@ -7,9 +7,8 @@ States:
 - HALF_OPEN: Testing if service recovered
 """
 import time
-from enum import Enum
-from typing import Callable, Any
 from dataclasses import dataclass
+from enum import Enum
 
 
 class CircuitState(str, Enum):
