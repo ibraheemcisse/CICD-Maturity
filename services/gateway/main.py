@@ -6,21 +6,22 @@ Handles:
 - Circuit breaking for queue failures
 - Rate limiting (future)
 """
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
-from contextlib import asynccontextmanager
 import os
-import uuid
 import sys
+import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime
 
 # Add parent directory to path for shared imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
+from circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+
+from shared.logger import setup_logger
 from shared.models import Job, JobStatus
 from shared.queue import QueueClient
-from shared.logger import setup_logger
-from circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 
 logger = setup_logger("gateway")
 queue_client = QueueClient()
@@ -108,7 +109,6 @@ async def submit_job(job_type: str, payload: dict = None):
         job_type: Type of job to execute
         payload: Optional job payload
     """
-    # Check circuit breaker
     if not queue_breaker.allow_request():
         logger.warning("Circuit breaker OPEN - rejecting request")
         raise HTTPException(
