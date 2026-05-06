@@ -1,12 +1,13 @@
 """
 PostgreSQL database client and models.
 """
-from sqlalchemy import Column, String, DateTime, Integer, Text, Enum as SQLEnum
-from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
-from sqlalchemy.orm import declarative_base
-from datetime import datetime
-from typing import Optional
 import enum
+from datetime import datetime
+
+from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import Enum as SQLEnum
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import declarative_base
 
 from .config import Config
 from .logger import setup_logger
