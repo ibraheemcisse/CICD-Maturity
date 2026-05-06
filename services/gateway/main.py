@@ -12,13 +12,13 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
-
 # Add parent directory to path for shared imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 from circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+
 from shared.logger import setup_logger
 from shared.models import Job, JobStatus
 from shared.queue import QueueClient
