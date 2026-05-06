@@ -3,7 +3,6 @@ Shared logging configuration.
 """
 import logging
 import sys
-
 from .config import Config
 
 
