@@ -101,7 +101,7 @@ async def root():
 
 
 @app.post("/jobs/submit")
-async def submit_job(job_type: str, payload: dict = None):
+async def submit_job(job_type: str, payload: dict | None = None):
     """
     Submit a job to the processing queue.
     
@@ -116,7 +116,7 @@ async def submit_job(job_type: str, payload: dict = None):
             detail="Service temporarily unavailable (circuit breaker open)"
         )
     
-    job = Job(
+    job = Job(  # type: ignore[call-arg]
         job_id=str(uuid.uuid4()),
         job_type=job_type,
         payload=payload or {},

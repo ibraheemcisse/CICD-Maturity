@@ -44,7 +44,7 @@ class CircuitBreaker:
             raise ServiceUnavailableError()
     """
     
-    def __init__(self, name: str, config: CircuitBreakerConfig = None):
+    def __init__(self, name: str, config: CircuitBreakerConfig | None = None):
         self.name = name
         self.config = config or CircuitBreakerConfig()
         
