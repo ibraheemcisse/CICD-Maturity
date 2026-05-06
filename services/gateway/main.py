@@ -10,12 +10,14 @@ from datetime import datetime
 # Add parent directory to path for shared imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
-from circuit_breaker import CircuitBreaker, CircuitBreakerConfig  # noqa: E402
-from fastapi import FastAPI, HTTPException  # noqa: E402
-from fastapi.responses import JSONResponse  # noqa: E402
-from shared.logger import setup_logger  # noqa: E402
-from shared.models import Job, JobStatus  # noqa: E402
-from shared.queue import QueueClient  # noqa: E402
+# isort: split
+from circuit_breaker import CircuitBreaker, CircuitBreakerConfig
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
+
+from shared.logger import setup_logger
+from shared.models import Job, JobStatus
+from shared.queue import QueueClient
 
 logger = setup_logger("gateway")
 queue_client = QueueClient()
