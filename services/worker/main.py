@@ -6,19 +6,20 @@ Demonstrates:
 - Resource management (OOM simulation)
 - Backpressure handling
 """
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
-from contextlib import asynccontextmanager
-import os
 import asyncio
+import os
 import sys
+from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 
 # Add parent directory to path for shared imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from shared.models import Job, JobStatus
-from shared.queue import QueueClient
 from shared.logger import setup_logger
+from shared.models import Job
+from shared.queue import QueueClient
 
 logger = setup_logger("worker")
 queue_client = QueueClient()
@@ -57,7 +58,9 @@ async def process_job(job: Job):
             # Deliberate memory leak - allocates 100MB per job
             chunk = "x" * (100 * 1024 * 1024)  # 100MB string
             memory_leak.append(chunk)
-            logger.warning(f"OOM simulation: allocated 100MB (total leaks: {len(memory_leak)})")
+            logger.warning(
+                f"OOM simulation: allocated 100MB (total leaks: {len(memory_leak)})"
+            )
         
         # Simulate work
         work_duration = job.payload.get("duration", 2)
@@ -103,16 +106,21 @@ async def check_backpressure():
 
 async def worker_loop():
     """Main worker loop - consumes jobs from queue with backpressure handling."""
-    logger.info(f"Worker loop started (max concurrent jobs: {MAX_CONCURRENT_JOBS})")
+    logger.info(
+        f"Worker loop started (max concurrent jobs: {MAX_CONCURRENT_JOBS})"
+    )
     
     while True:
         try:
             # Check backpressure
-            queue_depth = await check_backpressure()
+            await check_backpressure()
             
             # Respect concurrency limit (backpressure handling)
             if active_jobs >= MAX_CONCURRENT_JOBS:
-                logger.debug(f"Concurrency limit reached ({active_jobs}/{MAX_CONCURRENT_JOBS}), waiting...")
+                logger.debug(
+                    f"Concurrency limit reached "
+                    f"({active_jobs}/{MAX_CONCURRENT_JOBS}), waiting..."
+                )
                 await asyncio.sleep(1)
                 continue
             
@@ -240,7 +248,10 @@ async def enable_oom():
     global oom_enabled
     oom_enabled = True
     logger.warning("OOM simulation ENABLED")
-    return {"status": "enabled", "message": "Worker will leak memory on oom_simulation jobs"}
+    return {
+        "status": "enabled",
+        "message": "Worker will leak memory on oom_simulation jobs"
+    }
 
 
 @app.post("/oom/disable")
