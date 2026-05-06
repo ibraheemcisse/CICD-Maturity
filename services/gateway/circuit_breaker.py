@@ -7,9 +7,8 @@ States:
 - HALF_OPEN: Testing if service recovered
 """
 import time
-from enum import Enum
-from typing import Callable, Any
 from dataclasses import dataclass
+from enum import Enum
 
 
 class CircuitState(str, Enum):
@@ -22,101 +21,63 @@ class CircuitState(str, Enum):
 @dataclass
 class CircuitBreakerConfig:
     """Circuit breaker configuration."""
-    failure_threshold: int = 5  # Failures before opening
-    timeout: int = 60  # Seconds to wait before half-open
-    success_threshold: int = 2  # Successes in half-open before closing
+    failure_threshold: int = 5
+    timeout: int = 60
+    success_threshold: int = 2
 
 
 class CircuitBreaker:
-    """
-    Circuit breaker for protecting against cascading failures.
-    
-    Usage:
-        breaker = CircuitBreaker(name="worker_service")
-        
-        if breaker.allow_request():
-            try:
-                result = await call_service()
-                breaker.record_success()
-            except Exception:
-                breaker.record_failure()
-        else:
-            # Circuit is open, fail fast
-            raise ServiceUnavailableError()
-    """
-    
-    def __init__(self, name: str, config: CircuitBreakerConfig = None):
+    def __init__(self, name: str, config: CircuitBreakerConfig | None = None):
         self.name = name
         self.config = config or CircuitBreakerConfig()
-        
         self.state = CircuitState.CLOSED
         self.failure_count = 0
         self.success_count = 0
-        self.last_failure_time = None
-    
+        self.last_failure_time: float | None = None
+
     def allow_request(self) -> bool:
-        """
-        Check if request should be allowed through.
-        
-        Returns:
-            True if request allowed, False if circuit open
-        """
         if self.state == CircuitState.CLOSED:
             return True
-        
         if self.state == CircuitState.OPEN:
-            # Check if timeout has elapsed
             if self._should_attempt_reset():
                 self.state = CircuitState.HALF_OPEN
                 self.success_count = 0
                 return True
             return False
-        
-        # HALF_OPEN state - allow limited requests
         return True
-    
-    def record_success(self):
-        """Record successful request."""
+
+    def record_success(self) -> None:
         if self.state == CircuitState.HALF_OPEN:
             self.success_count += 1
             if self.success_count >= self.config.success_threshold:
                 self._close_circuit()
         elif self.state == CircuitState.CLOSED:
-            # Reset failure count on success
             self.failure_count = 0
-    
-    def record_failure(self):
-        """Record failed request."""
+
+    def record_failure(self) -> None:
         self.failure_count += 1
         self.last_failure_time = time.time()
-        
         if self.state == CircuitState.HALF_OPEN:
-            # Failure in half-open, reopen circuit
             self._open_circuit()
         elif self.state == CircuitState.CLOSED:
             if self.failure_count >= self.config.failure_threshold:
                 self._open_circuit()
-    
-    def _open_circuit(self):
-        """Transition to OPEN state."""
+
+    def _open_circuit(self) -> None:
         self.state = CircuitState.OPEN
         self.last_failure_time = time.time()
-    
-    def _close_circuit(self):
-        """Transition to CLOSED state."""
+
+    def _close_circuit(self) -> None:
         self.state = CircuitState.CLOSED
         self.failure_count = 0
         self.success_count = 0
-    
+
     def _should_attempt_reset(self) -> bool:
-        """Check if enough time has passed to attempt reset."""
         if self.last_failure_time is None:
             return True
-        elapsed = time.time() - self.last_failure_time
-        return elapsed >= self.config.timeout
-    
+        return (time.time() - self.last_failure_time) >= self.config.timeout
+
     def get_state(self) -> dict:
-        """Get current circuit breaker state for monitoring."""
         return {
             "name": self.name,
             "state": self.state.value,
@@ -125,6 +86,6 @@ class CircuitBreaker:
             "config": {
                 "failure_threshold": self.config.failure_threshold,
                 "timeout": self.config.timeout,
-                "success_threshold": self.config.success_threshold
-            }
+                "success_threshold": self.config.success_threshold,
+            },
         }
