@@ -109,7 +109,6 @@ async def submit_job(job_type: str, payload: dict = None):
         job_type: Type of job to execute
         payload: Optional job payload
     """
-    # Check circuit breaker
     if not queue_breaker.allow_request():
         logger.warning("Circuit breaker OPEN - rejecting request")
         raise HTTPException(
