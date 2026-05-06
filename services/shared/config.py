@@ -2,7 +2,6 @@
 Shared configuration utilities.
 """
 import os
-from typing import Optional
 
 
 class Config:

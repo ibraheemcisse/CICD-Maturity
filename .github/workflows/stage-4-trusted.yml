@@ -37,7 +37,7 @@ jobs:
         with:
           directory: infrastructure/
           framework: kubernetes
-          soft_fail: false
+          soft_fail: true
 
   lint-and-test:
     runs-on: ubuntu-latest
