@@ -6,20 +6,19 @@ Demonstrates:
 - Resource management (OOM simulation)
 - Backpressure handling
 """
-import asyncio
-import os
-import sys
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+import os
+import asyncio
+import sys
 
 # Add parent directory to path for shared imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from fastapi import FastAPI
-from fastapi.responses import JSONResponse
-
-from shared.logger import setup_logger
-from shared.models import Job
+from shared.models import Job, JobStatus
 from shared.queue import QueueClient
+from shared.logger import setup_logger
 
 logger = setup_logger("worker")
 queue_client = QueueClient()
@@ -109,13 +108,11 @@ async def worker_loop():
     while True:
         try:
             # Check backpressure
-            await check_backpressure()
-
+            queue_depth = await check_backpressure()
+            
             # Respect concurrency limit (backpressure handling)
             if active_jobs >= MAX_CONCURRENT_JOBS:
-                logger.debug(
-                    f"Concurrency limit reached ({active_jobs}/{MAX_CONCURRENT_JOBS}), waiting..."
-                )
+                logger.debug(f"Concurrency limit reached ({active_jobs}/{MAX_CONCURRENT_JOBS}), waiting...")
                 await asyncio.sleep(1)
                 continue
             
