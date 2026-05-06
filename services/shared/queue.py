@@ -1,13 +1,13 @@
 """
 Redis queue client for job distribution.
 """
-import json
-import asyncio
 from typing import Optional
-import redis.asyncio as aioredis
-from .models import Job
+
+import redis.asyncio as aioredis  # type: ignore[import-untyped]
+
 from .config import Config
 from .logger import setup_logger
+from .models import Job
 
 logger = setup_logger("queue")
 
@@ -37,16 +37,8 @@ class QueueClient:
             logger.info("Disconnected from Redis")
     
     async def enqueue(self, job: Job) -> bool:
-        """
-        Add job to the queue.
-        
-        Args:
-            job: Job to enqueue
-            
-        Returns:
-            True if successful
-        """
         try:
+            assert self.redis is not None
             job_data = job.model_dump_json()
             await self.redis.rpush(self.QUEUE_KEY, job_data)
             logger.info(f"Enqueued job {job.job_id} (type: {job.job_type})")
@@ -54,18 +46,10 @@ class QueueClient:
         except Exception as e:
             logger.error(f"Failed to enqueue job {job.job_id}: {e}")
             return False
-    
+
     async def dequeue(self, timeout: int = 5) -> Optional[Job]:
-        """
-        Pop job from queue with blocking.
-        
-        Args:
-            timeout: Blocking timeout in seconds
-            
-        Returns:
-            Job if available, None if timeout
-        """
         try:
+            assert self.redis is not None
             result = await self.redis.blpop(self.QUEUE_KEY, timeout=timeout)
             if result:
                 _, job_data = result
@@ -76,10 +60,10 @@ class QueueClient:
         except Exception as e:
             logger.error(f"Failed to dequeue job: {e}")
             return None
-    
+
     async def get_queue_depth(self) -> int:
-        """Get number of pending jobs in queue."""
         try:
+            assert self.redis is not None
             depth = await self.redis.llen(self.QUEUE_KEY)
             return depth
         except Exception as e:
