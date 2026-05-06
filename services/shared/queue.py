@@ -1,11 +1,11 @@
 """
 Redis queue client for job distribution.
 """
-import json
 from typing import Optional
 
 import redis.asyncio as aioredis  # type: ignore[import-untyped]
 
+from .config import Config
 from .logger import setup_logger
 from .models import Job
 
@@ -13,79 +13,54 @@ logger = setup_logger("queue")
 
 
 class QueueClient:
-    """Async Redis queue client for job distribution."""
-    
-    QUEUE_KEY = "jobs:queue"
-    
-    def __init__(self, redis_host: str = "localhost", redis_port: int = 6379):
-        self.redis_host = redis_host
-        self.redis_port = redis_port
+    """Redis-based job queue."""
+
+    QUEUE_KEY = "jobs:pending"
+
+    def __init__(self) -> None:
         self.redis: Optional[aioredis.Redis] = None
-    
-    async def connect(self):
-        """Connect to Redis."""
+
+    async def connect(self) -> None:
         self.redis = await aioredis.from_url(
-            f"redis://{self.redis_host}:{self.redis_port}",
+            Config.get_redis_url(),
             encoding="utf-8",
-            decode_responses=True
+            decode_responses=True,
         )
-        logger.info(f"Connected to Redis at {self.redis_host}:{self.redis_port}")
-    
-    async def disconnect(self):
-        """Disconnect from Redis."""
+        logger.info(f"Connected to Redis at {Config.REDIS_HOST}:{Config.REDIS_PORT}")
+
+    async def disconnect(self) -> None:
         if self.redis:
             await self.redis.close()
             logger.info("Disconnected from Redis")
-    
+
     async def enqueue(self, job: Job) -> bool:
-        """
-        Add job to queue.
-        
-        Args:
-            job: Job to enqueue
-            
-        Returns:
-            True if successful
-        """
         try:
-            if self.redis:
-                await self.redis.rpush(self.QUEUE_KEY, job.model_dump_json())  # type: ignore[union-attr]
-                logger.debug(f"Enqueued job {job.job_id}")
-                return True
-            return False
+            assert self.redis is not None
+            await self.redis.rpush(self.QUEUE_KEY, job.model_dump_json())  # type: ignore[misc]
+            logger.info(f"Enqueued job {job.job_id}")
+            return True
         except Exception as e:
-            logger.error(f"Failed to enqueue job: {e}")
+            logger.error(f"Failed to enqueue job {job.job_id}: {e}")
             return False
-    
+
     async def dequeue(self, timeout: int = 5) -> Optional[Job]:
-        """
-        Remove and return job from queue.
-        
-        Args:
-            timeout: Block timeout in seconds
-            
-        Returns:
-            Job if available, None otherwise
-        """
         try:
-            if self.redis:
-                result = await self.redis.blpop(self.QUEUE_KEY, timeout=timeout)  # type: ignore[union-attr,arg-type]
-                if result:
-                    _, job_json = result
-                    job_data = json.loads(job_json)
-                    return Job(**job_data)
+            assert self.redis is not None
+            result = await self.redis.blpop(  # type: ignore[misc]
+                [self.QUEUE_KEY], timeout=timeout
+            )
+            if result:
+                _, job_data = result
+                return Job.model_validate_json(job_data)
             return None
         except Exception as e:
             logger.error(f"Failed to dequeue job: {e}")
             return None
-    
+
     async def get_queue_depth(self) -> int:
-        """Get current queue depth."""
         try:
-            if self.redis:
-                depth = await self.redis.llen(self.QUEUE_KEY)  # type: ignore[union-attr]
-                return depth
-            return 0
+            assert self.redis is not None
+            return await self.redis.llen(self.QUEUE_KEY)  # type: ignore[misc]
         except Exception as e:
             logger.error(f"Failed to get queue depth: {e}")
             return 0
