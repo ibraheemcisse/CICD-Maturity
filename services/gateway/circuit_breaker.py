@@ -7,8 +7,9 @@ States:
 - HALF_OPEN: Testing if service recovered
 """
 import time
-from dataclasses import dataclass
 from enum import Enum
+from typing import Callable, Any
+from dataclasses import dataclass
 
 
 class CircuitState(str, Enum):
@@ -44,7 +45,7 @@ class CircuitBreaker:
             raise ServiceUnavailableError()
     """
     
-    def __init__(self, name: str, config: CircuitBreakerConfig | None = None):
+    def __init__(self, name: str, config: CircuitBreakerConfig = None):
         self.name = name
         self.config = config or CircuitBreakerConfig()
         

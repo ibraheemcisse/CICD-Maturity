@@ -6,22 +6,21 @@ Handles:
 - Circuit breaking for queue failures
 - Rate limiting (future)
 """
-import os
-import sys
-import uuid
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import JSONResponse
 from contextlib import asynccontextmanager
+import os
+import uuid
+import sys
 from datetime import datetime
 
 # Add parent directory to path for shared imports
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-from circuit_breaker import CircuitBreaker, CircuitBreakerConfig
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
-
-from shared.logger import setup_logger
 from shared.models import Job, JobStatus
 from shared.queue import QueueClient
+from shared.logger import setup_logger
+from circuit_breaker import CircuitBreaker, CircuitBreakerConfig
 
 logger = setup_logger("gateway")
 queue_client = QueueClient()
@@ -101,7 +100,7 @@ async def root():
 
 
 @app.post("/jobs/submit")
-async def submit_job(job_type: str, payload: dict | None = None):
+async def submit_job(job_type: str, payload: dict = None):
     """
     Submit a job to the processing queue.
     
@@ -109,6 +108,7 @@ async def submit_job(job_type: str, payload: dict | None = None):
         job_type: Type of job to execute
         payload: Optional job payload
     """
+    # Check circuit breaker
     if not queue_breaker.allow_request():
         logger.warning("Circuit breaker OPEN - rejecting request")
         raise HTTPException(
@@ -116,7 +116,7 @@ async def submit_job(job_type: str, payload: dict | None = None):
             detail="Service temporarily unavailable (circuit breaker open)"
         )
     
-    job = Job(  # type: ignore[call-arg]
+    job = Job(
         job_id=str(uuid.uuid4()),
         job_type=job_type,
         payload=payload or {},

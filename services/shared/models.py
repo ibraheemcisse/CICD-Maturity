@@ -1,11 +1,10 @@
 """
 Shared data models used across services.
 """
+from pydantic import BaseModel, Field
+from typing import Optional, Dict, Any
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, Optional
-
-from pydantic import BaseModel, Field
 
 
 class JobStatus(str, Enum):
@@ -22,9 +21,7 @@ class Job(BaseModel):
     job_type: str = Field(..., description="Type of job to execute")
     payload: Dict[str, Any] = Field(default_factory=dict, description="Job payload")
     status: JobStatus = Field(default=JobStatus.PENDING, description="Current job status")
-    created_at: datetime = Field(
-        default_factory=datetime.utcnow, description="Job creation timestamp"
-    )
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Job creation timestamp")
     started_at: Optional[datetime] = Field(None, description="Job start timestamp")
     completed_at: Optional[datetime] = Field(None, description="Job completion timestamp")
     error: Optional[str] = Field(None, description="Error message if failed")
