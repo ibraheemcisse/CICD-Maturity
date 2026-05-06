@@ -40,7 +40,7 @@ class QueueClient:
         try:
             assert self.redis is not None
             job_data = job.model_dump_json()
-            await self.redis.rpush(self.QUEUE_KEY, job_data)
+            await self.redis.rpush(self.QUEUE_KEY, job_data)  # type: ignore[misc]
             logger.info(f"Enqueued job {job.job_id} (type: {job.job_type})")
             return True
         except Exception as e:
@@ -50,7 +50,7 @@ class QueueClient:
     async def dequeue(self, timeout: int = 5) -> Optional[Job]:
         try:
             assert self.redis is not None
-            result = await self.redis.blpop(self.QUEUE_KEY, timeout=timeout)
+            result = await self.redis.blpop(self.QUEUE_KEY, timeout=timeout)  # type: ignore[misc, arg-type]
             if result:
                 _, job_data = result
                 job = Job.model_validate_json(job_data)
@@ -64,7 +64,7 @@ class QueueClient:
     async def get_queue_depth(self) -> int:
         try:
             assert self.redis is not None
-            depth = await self.redis.llen(self.QUEUE_KEY)
+            depth = await self.redis.llen(self.QUEUE_KEY)  # type: ignore[misc]
             return depth
         except Exception as e:
             logger.error(f"Failed to get queue depth: {e}")
